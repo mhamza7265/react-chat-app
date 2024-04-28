@@ -1,6 +1,6 @@
-function MessageBubble({ message, time, status, type }) {
+function MessageBubble({ message, id, time, status, type }) {
   return (
-    <div className={`message ${type}`}>
+    <div className={`message ${type}`} data-id={id}>
       <p className="message-text" style={{ color: "#000" }}>
         {message}
       </p>

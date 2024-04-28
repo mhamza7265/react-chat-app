@@ -1,6 +1,7 @@
 import InputMessages from "../../common/InputMessages";
 import MessageBubble from "./MessageBubble";
 import { useEffect, useRef } from "react";
+import { jwtDecode } from "jwt-decode";
 
 function ChatWindow({
   register,
@@ -18,6 +19,10 @@ function ChatWindow({
     messageDiv.current.scrollTo(0, messageDiv.current.scrollHeight);
   }, [messages]);
 
+  const tok = localStorage.getItem("currentUser");
+  const token = JSON.parse(tok).token;
+  const decode = jwtDecode(token);
+
   return (
     <div className="chat-window h-100 position-relative">
       <div className="header d-flex align-items-center justify-content-start">
@@ -32,14 +37,15 @@ function ChatWindow({
         {messages?.map((item, i) => (
           <MessageBubble
             key={i}
-            message={item.newMessage}
+            id={item._id}
+            message={item.message}
             time={item.time}
-            type="self"
+            type={item.sender == decode?.email ? "self" : "notself"}
           />
         ))}
       </div>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="message-input d-flex align-items-center justify-content-between px-4 py-3">
+        <div className="message-input d-flex align-items-center justify-content-between px-4 py-1">
           <InputMessages
             register={register}
             name={name}

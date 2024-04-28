@@ -31,19 +31,69 @@ function Messenger() {
   }, []);
 
   const handleChatClick = (data) => {
-    setReceiver(data);
-    setChatWindowIsActive(true);
+    sendRequest("get", `messages/${data.id}`)
+      .then((res) => {
+        if (res.status) {
+          setMessages(res.messages);
+          setReceiver(data);
+          setChatWindowIsActive(true);
+        }
+      })
+      .catch((err) => {
+        console.log("messagesErr", err);
+      });
   };
 
   const onSubmit = (data) => {
-    console.log("data", data);
-    const date = new Date();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const hour = hours > 12 ? hours - 12 : hours == 0 ? 12 : hours;
-    const time = hour + ":" + minutes + (hours > 12 ? "pm" : "am");
-    data["time"] = time;
-    setMessages([...messages, data]);
+    // console.log("data", data);
+    // const date = new Date();
+    // const hours = date.getHours();
+    // const minutes = date.getMinutes();
+    // const hour = hours > 12 ? hours - 12 : hours == 0 ? 12 : hours;
+    // const time = hour + ":" + minutes + (hours > 12 ? "pm" : "am");
+    // data["time"] = time;
+    // setMessages([...messages, data]);
+    sendRequest("post", "chat", {
+      receiver: receiver?.email,
+      name: receiver?.name,
+      image: receiver?.image,
+    })
+      .then((res) => {
+        console.log("chats", res);
+        if (res.status) {
+          sendRequest("get", "chats").then((res) => {
+            if (res.status) {
+              setChatsList(res.chats);
+
+              sendRequest("post", "message", {
+                chatId: receiver?.id,
+                message: data.newMessage,
+              })
+                .then((res) => {
+                  console.log("message", res);
+                  if (res.status) {
+                    sendRequest("get", `messages/${receiver.id}`)
+                      .then((res) => {
+                        if (res.status) {
+                          setMessages(res.messages);
+                        }
+                      })
+                      .catch((err) => {
+                        console.log("messagesErr", err);
+                      });
+                  }
+                })
+                .catch((err) => {
+                  console.log("err", err);
+                });
+            }
+          });
+        }
+      })
+      .catch((err) => {
+        console.log("chatErr", err);
+      });
+
     reset();
   };
 
@@ -67,10 +117,41 @@ function Messenger() {
       name: e.currentTarget.getAttribute("data-name"),
       email: e.currentTarget.getAttribute("data-email"),
     };
-    setReceiver(obj);
-    setChatWindowIsActive(true);
-    setDropdownIsOpen(false);
+    sendRequest("post", "chat", {
+      receiver: obj.email,
+      name: obj.name,
+      image: obj.image,
+    }).then((res) => {
+      if (res.status) {
+        console.log("chatCreat", res);
+        sendRequest("get", "chats").then((res) => {
+          if (res.status) {
+            setChatsList(res.chats);
+          }
+        });
+
+        sendRequest("get", `chat/${obj.email}`).then((res) => {
+          if (res.status) {
+            obj["id"] = res?.user?._id;
+            sendRequest("get", `messages/${res?.user?._id}`)
+              .then((res) => {
+                if (res.status) {
+                  setMessages(res.messages);
+                  setReceiver(obj);
+                  setChatWindowIsActive(true);
+                  setDropdownIsOpen(false);
+                }
+              })
+              .catch((err) => {
+                console.log("messagesErr", err);
+              });
+          }
+        });
+      }
+    });
   };
+
+  console.log("receiver", receiver);
 
   const handleContainerClick = (e) => {
     const node = e.target.classList;
@@ -146,24 +227,11 @@ function Messenger() {
                   id={item._id}
                   image={item.image}
                   name={item.name}
+                  users={item.users}
                   handleChatClick={handleChatClick}
+                  receiver={receiver}
                 />
               ))}
-              <ChatItem
-                image={photoPlaceholder}
-                name={"Lorem Ipsum 2"}
-                handleChatClick={handleChatClick}
-              />
-              <ChatItem
-                image={photoPlaceholder}
-                name={"Lorem Ipsum 3"}
-                handleChatClick={handleChatClick}
-              />
-              <ChatItem
-                image={photoPlaceholder}
-                name={"Lorem Ipsum 4"}
-                handleChatClick={handleChatClick}
-              />
             </div>
           </div>
           <div className="chat-detail">
