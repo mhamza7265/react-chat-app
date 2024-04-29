@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import sendRequest from "../../../utility/apiManager";
 import { errorToast } from "../../../utility/toast";
 import { BASE_URL } from "../../../utility/config";
+import { Modal } from "react-bootstrap";
 
 function Messenger() {
   const [messages, setMessages] = useState([]);
@@ -14,6 +15,7 @@ function Messenger() {
   const [usersList, setUsersList] = useState(null);
   const [dropdownIsOpen, setDropdownIsOpen] = useState(false);
   const [chatsList, setChatsList] = useState(null);
+  const [newChatModalIsOpen, setNewChatModalIsOpen] = useState(false);
 
   const {
     handleSubmit,
@@ -98,7 +100,7 @@ function Messenger() {
   };
 
   const handleNewMessageClick = () => {
-    sendRequest("get", "users")
+    sendRequest("get", "users/1")
       .then((res) => {
         if (res.status) {
           setUsersList(res.users);
@@ -139,7 +141,7 @@ function Messenger() {
                   setMessages(res.messages);
                   setReceiver(obj);
                   setChatWindowIsActive(true);
-                  setDropdownIsOpen(false);
+                  setNewChatModalIsOpen(false);
                 }
               })
               .catch((err) => {
@@ -163,9 +165,47 @@ function Messenger() {
       "users-dropdown-text",
       "users-dropdown-div",
       "users-dropdown-email",
+      "dropdown-btn",
+      "dropdown-btn-div",
     ];
     if (!classNames.some((className) => node.contains(className))) {
       setDropdownIsOpen(false);
+    }
+  };
+
+  const handleLoadMoreUsersClick = () => {
+    sendRequest("get", `users/${usersList.page + 1}`)
+      .then((res) => {
+        if (res.status) {
+          setUsersList({
+            ...res.users,
+            docs: usersList.docs.concat(res.users.docs),
+          });
+        }
+      })
+      .catch((err) => {
+        errorToast(err);
+        console.log(err);
+      });
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    if (value != "") {
+      sendRequest("get", `user/${value}`).then((res) => {
+        setUsersList({ ...usersList, docs: res.user });
+      });
+    } else {
+      sendRequest("get", "users/1")
+        .then((res) => {
+          if (res.status) {
+            setUsersList(res.users);
+          }
+        })
+        .catch((err) => {
+          errorToast(err);
+          console.log(err);
+        });
     }
   };
 
@@ -183,8 +223,24 @@ function Messenger() {
                 onClick={handleNewMessageClick}
               ></i>
               {dropdownIsOpen && (
-                <div className="users-dropdown cursor-pointer">
-                  <ul className="users-dropdown-ul">
+                <div className="users-dropdown py-5">
+                  <div className="w-max-content mx-auto mb-4 dropdown-btn-div">
+                    <button
+                      className="btn btn-sm dropdown-btn"
+                      onClick={() => {
+                        setDropdownIsOpen(false);
+                        setNewChatModalIsOpen(true);
+                      }}
+                    >
+                      New Chat
+                    </button>
+                  </div>
+                  <div className="w-max-content mx-auto dropdown-btn-div">
+                    <button className="btn btn-sm disabled dropdown-btn">
+                      Create Group
+                    </button>
+                  </div>
+                  {/* <ul className="users-dropdown-ul">
                     {usersList?.map((item, i) => (
                       <li
                         className="users-dropdown-li"
@@ -212,7 +268,7 @@ function Messenger() {
                         </div>
                       </li>
                     ))}
-                  </ul>
+                  </ul> */}
                 </div>
               )}
             </div>
@@ -253,6 +309,76 @@ function Messenger() {
           </div>
         </div>
       </div>
+      <>
+        <Modal
+          size="md"
+          className="new-chat"
+          centered
+          show={newChatModalIsOpen}
+          onHide={() => {
+            // resetChat();
+            setNewChatModalIsOpen(false);
+          }}
+          style={{ zIndex: "9999", padding: 0 }}
+        >
+          <Modal.Header
+            style={{ borderBottom: "1px solid #d1d7db" }}
+            closeButton
+          >
+            <h5 className="text-center w-100">USERS</h5>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="container">
+              <input
+                placeholder="Search user"
+                style={{
+                  height: "40px",
+                  marginBottom: "20px",
+                  borderColor: "#aad6ce",
+                }}
+                onChange={handleSearchChange}
+              />
+              <div className="users">
+                {usersList?.docs?.map((item, i) => (
+                  <div
+                    className="user-div cursor-pointer"
+                    key={i}
+                    onClick={handleUserClick}
+                    data-email={item.email}
+                    data-name={item.firstName + " " + item.lastName}
+                    data-image={item.image ?? photoPlaceholder}
+                  >
+                    <img
+                      className="users-dropdown-img"
+                      src={
+                        item.image
+                          ? BASE_URL + "/" + item.image
+                          : photoPlaceholder
+                      }
+                    />
+                    <div className="users-dropdown-div ms-5">
+                      <h5 className="users-dropdown-text">
+                        {item.firstName + " " + item.lastName}
+                      </h5>
+                      <span className="users-dropdown-email">{item.email}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="w-max-content mx-auto mt-4 mb-5">
+                <button
+                  className={`btn btn-sm btn-heading btn-block hover-up mx-auto 
+                    ${!usersList?.hasNextPage && "disabled"}
+                    `}
+                  onClick={handleLoadMoreUsersClick}
+                >
+                  <i className="fa-solid fa-arrows-rotate"></i> Load More
+                </button>
+              </div>
+            </div>
+          </Modal.Body>
+        </Modal>
+      </>
     </div>
   );
 }

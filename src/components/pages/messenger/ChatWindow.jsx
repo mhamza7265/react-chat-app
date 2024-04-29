@@ -43,6 +43,11 @@ function ChatWindow({
             type={item.sender == decode?.email ? "self" : "notself"}
           />
         ))}
+        <MessageBubble
+          message={"Lorem ipsum...."}
+          time={"2024-04-28T18:30:55.052Z"}
+          type={"notself"}
+        />
       </div>
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="message-input d-flex align-items-center justify-content-between px-4 py-1">
