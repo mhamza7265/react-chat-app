@@ -7,6 +7,18 @@ import sendRequest from "../../../utility/apiManager";
 import { errorToast } from "../../../utility/toast";
 import { BASE_URL } from "../../../utility/config";
 import { Modal } from "react-bootstrap";
+import { jwtDecode } from "jwt-decode";
+const tok = localStorage.getItem("currentUser");
+const token = JSON.parse(tok).token;
+const decode = jwtDecode(token);
+import socketClient from "socket.io-client";
+const socket = socketClient("http://localhost:3000");
+
+socket.on("connection", () => {
+  console.log("connected socket");
+});
+
+console.log("decode", decode);
 
 function Messenger() {
   const [messages, setMessages] = useState([]);
@@ -23,6 +35,13 @@ function Messenger() {
     reset,
     formState: { errors },
   } = useForm();
+
+  socket.emit("add_user", decode.id);
+
+  socket.on("receiveMsg", (data) => {
+    console.log("receivedMsg", data);
+    setMessages([...messages, data]);
+  });
 
   useEffect(() => {
     sendRequest("get", "chats").then((res) => {
@@ -47,53 +66,31 @@ function Messenger() {
   };
 
   const onSubmit = (data) => {
-    // console.log("data", data);
-    // const date = new Date();
-    // const hours = date.getHours();
-    // const minutes = date.getMinutes();
-    // const hour = hours > 12 ? hours - 12 : hours == 0 ? 12 : hours;
-    // const time = hour + ":" + minutes + (hours > 12 ? "pm" : "am");
-    // data["time"] = time;
-    // setMessages([...messages, data]);
-    sendRequest("post", "chat", {
-      receiver: receiver?.email,
-      name: receiver?.name,
-      image: receiver?.image,
+    socket.emit("send_msg", {
+      receiver: receiver?.userId,
+      sender: decode?.id,
+      message: data.newMessage,
+    });
+
+    setMessages([
+      ...messages,
+      {
+        message: data.newMessage,
+        time: new Date().toISOString(),
+        status: "unread",
+        sender: decode.email,
+      },
+    ]);
+
+    sendRequest("post", "message", {
+      chatId: receiver?.id,
+      message: data.newMessage,
     })
       .then((res) => {
-        console.log("chats", res);
-        if (res.status) {
-          sendRequest("get", "chats").then((res) => {
-            if (res.status) {
-              setChatsList(res.chats);
-
-              sendRequest("post", "message", {
-                chatId: receiver?.id,
-                message: data.newMessage,
-              })
-                .then((res) => {
-                  console.log("message", res);
-                  if (res.status) {
-                    sendRequest("get", `messages/${receiver.id}`)
-                      .then((res) => {
-                        if (res.status) {
-                          setMessages(res.messages);
-                        }
-                      })
-                      .catch((err) => {
-                        console.log("messagesErr", err);
-                      });
-                  }
-                })
-                .catch((err) => {
-                  console.log("err", err);
-                });
-            }
-          });
-        }
+        console.log("message", res);
       })
       .catch((err) => {
-        console.log("chatErr", err);
+        console.log("err", err);
       });
 
     reset();
@@ -118,14 +115,15 @@ function Messenger() {
       image: e.currentTarget.getAttribute("data-image"),
       name: e.currentTarget.getAttribute("data-name"),
       email: e.currentTarget.getAttribute("data-email"),
+      userId: e.currentTarget.getAttribute("data-userId"),
     };
     sendRequest("post", "chat", {
       receiver: obj.email,
       name: obj.name,
       image: obj.image,
+      userId: obj.userId,
     }).then((res) => {
       if (res.status) {
-        console.log("chatCreat", res);
         sendRequest("get", "chats").then((res) => {
           if (res.status) {
             setChatsList(res.chats);
@@ -152,8 +150,6 @@ function Messenger() {
       }
     });
   };
-
-  console.log("receiver", receiver);
 
   const handleContainerClick = (e) => {
     const node = e.target.classList;
@@ -284,6 +280,7 @@ function Messenger() {
                   image={item.image}
                   name={item.name}
                   users={item.users}
+                  userIds={item.userIds}
                   handleChatClick={handleChatClick}
                   receiver={receiver}
                 />
@@ -347,6 +344,7 @@ function Messenger() {
                     data-email={item.email}
                     data-name={item.firstName + " " + item.lastName}
                     data-image={item.image ?? photoPlaceholder}
+                    data-userId={item._id}
                   >
                     <img
                       className="users-dropdown-img"
