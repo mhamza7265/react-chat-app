@@ -12,13 +12,15 @@ const tok = localStorage.getItem("currentUser");
 const token = JSON.parse(tok).token;
 const decode = jwtDecode(token);
 import socketClient from "socket.io-client";
-const socket = socketClient("http://localhost:3000");
+const socket = socketClient("http://localhost:3000", {
+  query: {
+    token: token,
+  },
+});
 
 socket.on("connection", () => {
   console.log("connected socket");
 });
-
-console.log("decode", decode);
 
 function Messenger() {
   const [messages, setMessages] = useState([]);
@@ -36,7 +38,9 @@ function Messenger() {
     formState: { errors },
   } = useForm();
 
-  socket.emit("add_user", decode.id);
+  useEffect(() => {
+    socket.emit("add_user", decode.id);
+  }, []);
 
   socket.on("receiveMsg", (data) => {
     console.log("receivedMsg", data);
@@ -52,62 +56,53 @@ function Messenger() {
   }, []);
 
   const handleChatClick = (data) => {
-    sendRequest("get", `messages/${data.id}`)
-      .then((res) => {
-        if (res.status) {
-          setMessages(res.messages);
-          setReceiver(data);
-          setChatWindowIsActive(true);
-        }
-      })
-      .catch((err) => {
-        console.log("messagesErr", err);
-      });
+    socket.emit("getMessages", data.id);
+    socket.on("getMsgs", (messages) => {
+      if (messages.status) {
+        setMessages(messages.messages);
+        setChatWindowIsActive(true);
+      } else {
+        console.log("messagesErr", messages.error);
+      }
+    });
+    setReceiver(data);
   };
 
   const onSubmit = (data) => {
     socket.emit("send_msg", {
       receiver: receiver?.userId,
+      chatId: receiver?.id,
       sender: decode?.id,
       message: data.newMessage,
     });
 
-    setMessages([
-      ...messages,
-      {
-        message: data.newMessage,
-        time: new Date().toISOString(),
-        status: "unread",
-        sender: decode.email,
-      },
-    ]);
-
-    sendRequest("post", "message", {
-      chatId: receiver?.id,
-      message: data.newMessage,
-    })
-      .then((res) => {
-        console.log("message", res);
-      })
-      .catch((err) => {
-        console.log("err", err);
-      });
+    socket.on("checkMsgDelivered", (dta) => {
+      console.log("dta", dta);
+      setMessages([
+        ...messages,
+        {
+          message: data.newMessage,
+          time: new Date().toISOString(),
+          status: dta.message ? "unread" : "undelivered",
+          chatId: receiver?.id,
+          sender: decode.email,
+        },
+      ]);
+    });
 
     reset();
   };
 
   const handleNewMessageClick = () => {
-    sendRequest("get", "users/1")
-      .then((res) => {
-        if (res.status) {
-          setUsersList(res.users);
-          setDropdownIsOpen(true);
-        }
-      })
-      .catch((err) => {
-        errorToast(err);
-        console.log(err);
-      });
+    socket.emit("getUsersRequest", { page: 1 });
+    socket.on("getUsers", (data) => {
+      if (data.status) {
+        setUsersList(data.users);
+        setDropdownIsOpen(true);
+      } else {
+        console.log("err", data.error);
+      }
+    });
   };
 
   const handleUserClick = (e) => {
@@ -115,7 +110,7 @@ function Messenger() {
       image: e.currentTarget.getAttribute("data-image"),
       name: e.currentTarget.getAttribute("data-name"),
       email: e.currentTarget.getAttribute("data-email"),
-      userId: e.currentTarget.getAttribute("data-userId"),
+      userId: e.currentTarget.getAttribute("data-userid"),
     };
     sendRequest("post", "chat", {
       receiver: obj.email,
@@ -133,18 +128,18 @@ function Messenger() {
         sendRequest("get", `chat/${obj.email}`).then((res) => {
           if (res.status) {
             obj["id"] = res?.user?._id;
-            sendRequest("get", `messages/${res?.user?._id}`)
-              .then((res) => {
-                if (res.status) {
-                  setMessages(res.messages);
-                  setReceiver(obj);
-                  setChatWindowIsActive(true);
-                  setNewChatModalIsOpen(false);
-                }
-              })
-              .catch((err) => {
-                console.log("messagesErr", err);
-              });
+
+            socket.emit("getMessages", res?.user?._id);
+            socket.on("getMsgs", (messages) => {
+              if (messages.status) {
+                setMessages(messages.messages);
+                setReceiver(obj);
+                setChatWindowIsActive(true);
+                setNewChatModalIsOpen(false);
+              } else {
+                console.log("messagesErr", messages.error);
+              }
+            });
           }
         });
       }
@@ -170,38 +165,40 @@ function Messenger() {
   };
 
   const handleLoadMoreUsersClick = () => {
-    sendRequest("get", `users/${usersList.page + 1}`)
-      .then((res) => {
-        if (res.status) {
-          setUsersList({
-            ...res.users,
-            docs: usersList.docs.concat(res.users.docs),
-          });
-        }
-      })
-      .catch((err) => {
-        errorToast(err);
-        console.log(err);
-      });
+    socket.emit("getUsersRequest", { page: usersList.page + 1 });
+    socket.on("getUsers", (data) => {
+      if (data.status) {
+        setUsersList({
+          ...data.users,
+          docs: usersList.docs.concat(data.users.docs),
+        });
+      } else {
+        errorToast(data.error);
+        console.log("err", data.error);
+      }
+    });
   };
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
     if (value != "") {
-      sendRequest("get", `user/${value}`).then((res) => {
-        setUsersList({ ...usersList, docs: res.user });
+      socket.emit("getSearchedUserRequest", { email: value });
+      socket.on("getSearchedUsers", (data) => {
+        if (data.status) {
+          setUsersList({ ...usersList, docs: data.user });
+        } else {
+          console.log("err", data.error);
+        }
       });
     } else {
-      sendRequest("get", "users/1")
-        .then((res) => {
-          if (res.status) {
-            setUsersList(res.users);
-          }
-        })
-        .catch((err) => {
-          errorToast(err);
-          console.log(err);
-        });
+      socket.emit("getUsersRequest", { page: 1 });
+      socket.on("getUsers", (data) => {
+        if (data.status) {
+          setUsersList(data.users);
+        } else {
+          console.log("err", data.error);
+        }
+      });
     }
   };
 
@@ -236,35 +233,6 @@ function Messenger() {
                       Create Group
                     </button>
                   </div>
-                  {/* <ul className="users-dropdown-ul">
-                    {usersList?.map((item, i) => (
-                      <li
-                        className="users-dropdown-li"
-                        key={i}
-                        onClick={handleUserClick}
-                        data-email={item.email}
-                        data-name={item.firstName + " " + item.lastName}
-                        data-image={item.image ?? photoPlaceholder}
-                      >
-                        <img
-                          className="users-dropdown-img"
-                          src={
-                            item.image
-                              ? BASE_URL + "/" + item.image
-                              : photoPlaceholder
-                          }
-                        />
-                        <div className="users-dropdown-div">
-                          <h5 className="users-dropdown-text">
-                            {item.firstName + " " + item.lastName}
-                          </h5>
-                          <span className="users-dropdown-email">
-                            {item.email}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul> */}
                 </div>
               )}
             </div>
@@ -344,7 +312,7 @@ function Messenger() {
                     data-email={item.email}
                     data-name={item.firstName + " " + item.lastName}
                     data-image={item.image ?? photoPlaceholder}
-                    data-userId={item._id}
+                    data-userid={item._id}
                   >
                     <img
                       className="users-dropdown-img"

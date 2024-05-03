@@ -34,15 +34,21 @@ function ChatWindow({
         </div>
       </div>
       <div className="messages-body" ref={messageDiv}>
-        {messages?.map((item, i) => (
-          <MessageBubble
-            key={i}
-            id={item._id}
-            message={item.message}
-            time={item.time}
-            type={item.sender == decode?.email ? "self" : "notself"}
-          />
-        ))}
+        {messages?.map(
+          (item, i) =>
+            item.chatId === receiver?.id && (
+              <MessageBubble
+                key={i}
+                id={item._id}
+                message={item.message}
+                time={item.time}
+                type={item.sender === decode?.email ? "self" : "notself"}
+                status={item.status}
+                chatId={item.chatId}
+                receiverChatId={receiver?.id}
+              />
+            )
+        )}
       </div>
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="message-input d-flex align-items-center justify-content-between px-4 py-1">
