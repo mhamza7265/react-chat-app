@@ -8,10 +8,11 @@ import { errorToast } from "../../../utility/toast";
 import { BASE_URL } from "../../../utility/config";
 import { Modal } from "react-bootstrap";
 import { jwtDecode } from "jwt-decode";
+import socketClient from "socket.io-client";
 const tok = localStorage.getItem("currentUser");
 const token = JSON.parse(tok).token;
 const decode = jwtDecode(token);
-import socketClient from "socket.io-client";
+
 const socket = socketClient("http://localhost:3000", {
   query: {
     token: token,
@@ -43,9 +44,21 @@ function Messenger() {
   }, []);
 
   socket.on("receiveMsg", (data) => {
-    console.log("receivedMsg", data);
-    setMessages([...messages, data]);
+    setMessages(() => [...messages, data]);
   });
+
+  const onMessageSeen = (data) => {
+    socket.emit("msgRead", {
+      senderId: data.senderId,
+      messageId: [data.messageId],
+    });
+  };
+
+  useEffect(() => {
+    socket.on("getMessages", (data) => {
+      setMessages(data.messages);
+    });
+  }, [socket]);
 
   useEffect(() => {
     sendRequest("get", "chats").then((res) => {
@@ -69,11 +82,13 @@ function Messenger() {
   };
 
   const onSubmit = (data) => {
+    const randomId = `msg-${Math.floor(Math.random() * 99999999)}`;
     socket.emit("send_msg", {
       receiver: receiver?.userId,
       chatId: receiver?.id,
       sender: decode?.id,
       message: data.newMessage,
+      messageId: randomId,
     });
 
     socket.on("checkMsgDelivered", (dta) => {
@@ -83,14 +98,60 @@ function Messenger() {
         {
           message: data.newMessage,
           time: new Date().toISOString(),
-          status: dta.message ? "unread" : "undelivered",
+          status:
+            dta.response.message && dta.response.status
+              ? "unread"
+              : "undelivered",
           chatId: receiver?.id,
+          messageId: randomId,
           sender: decode.email,
+          success: dta.response.status ? true : false,
         },
       ]);
     });
 
+    socket.on("msgFailure", (data) => {
+      const msg = messages.find((item) => item.messageId == data.messageId);
+      console.log("msgFailure", msg);
+      // setMessages([...messages]);
+    });
+
     reset();
+  };
+
+  const handleRetryClick = (data) => {
+    const filtered = messages.filter(
+      (item) => item.messageId !== data.messageId
+    );
+    console.log("filtered", filtered);
+    console.log("data", data);
+    setMessages([...filtered], () => {
+      console.log("filList1", messages);
+      // const randomId = `msg-${Math.floor(Math.random() * 99999999)}`;
+      // socket.emit("send_msg", {
+      //   receiver: receiver?.userId,
+      //   chatId: receiver?.id,
+      //   sender: decode?.id,
+      //   message: data.message,
+      //   messageId: randomId,
+      // });
+
+      // socket.on("checkMsgDelivered", (dta) => {
+      //   setMessages([
+      //     ...messages,
+      //     {
+      //       message: data.message,
+      //       time: new Date().toISOString(),
+      //       status: dta.message && dta.status ? "unread" : "undelivered",
+      //       chatId: receiver?.id,
+      //       messageId: randomId,
+      //       sender: decode.email,
+      //       success: dta.status ? true : false,
+      //     },
+      //   ]);
+      // });
+      // console.log("filList2", messages);
+    });
   };
 
   const handleNewMessageClick = () => {
@@ -203,7 +264,7 @@ function Messenger() {
   };
 
   return (
-    <div className="container h-100 p-0" onClick={handleContainerClick}>
+    <div className="container-fluid h-100 p-0" onClick={handleContainerClick}>
       <div className="chat h-100">
         <div className="d-flex h-100">
           <div className="chat-list">
@@ -269,6 +330,8 @@ function Messenger() {
                 messages={messages}
                 reset={reset}
                 receiver={receiver}
+                onMessageSeen={onMessageSeen}
+                handleRetryClick={handleRetryClick}
               />
             )}
           </div>

@@ -13,6 +13,8 @@ function ChatWindow({
   onSubmit,
   messages,
   receiver,
+  onMessageSeen,
+  handleRetryClick,
 }) {
   const messageDiv = useRef();
   useEffect(() => {
@@ -41,11 +43,16 @@ function ChatWindow({
                 key={i}
                 id={item._id}
                 message={item.message}
+                messageId={item.messageId}
                 time={item.time}
-                type={item.sender === decode?.email ? "self" : "notself"}
+                type={item.sender == decode?.email ? "self" : "notself"}
                 status={item.status}
                 chatId={item.chatId}
                 receiverChatId={receiver?.id}
+                senderId={item.senderId}
+                success={item.success}
+                onMessageSeen={onMessageSeen}
+                handleRetryClick={handleRetryClick}
               />
             )
         )}

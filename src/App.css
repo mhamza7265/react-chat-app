@@ -176,6 +176,7 @@
 
 .chat-list {
   width: 30%;
+  min-width: 300px;
   border-right: 1px solid #d1cec7;
   background-color: white;
 }
@@ -295,12 +296,24 @@
   padding: 20px 0;
 }
 
+.retry {
+  position: absolute;
+  top: 100;
+  left: 0;
+  font-weight: bold;
+  cursor: pointer;
+}
+
 .message {
-  min-width: 20%;
+  min-width: 300px;
   max-width: 35%;
   padding: 5px 12px;
   border-radius: 5px;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
+}
+
+.message.failed {
+  background-color: red !important;
 }
 
 .message.self {
@@ -366,4 +379,25 @@
 
 .new-chat .modal-body {
   padding: 2rem !important;
+}
+
+@media (max-width: 900px) {
+  .chat-individual img {
+    height: 51px;
+    width: 60px;
+  }
+}
+
+@media (max-width: 800px) {
+  .chat-individual img {
+    height: 40px;
+    width: 60px;
+  }
+}
+
+@media (max-width: 660px) {
+  .chat-individual img {
+    height: 35px;
+    width: 55px;
+  }
 }
