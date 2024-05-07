@@ -30,7 +30,7 @@ function ChatItem({
         <img src={image} />
       </div>
       <div className="content cursor-pointer">
-        <span>{name}</span>
+        <span>{email}</span>
       </div>
     </div>
   );

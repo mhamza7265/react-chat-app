@@ -2,7 +2,7 @@ import photoPlaceholder from "../../../assets/images/user-placeholder.jpg";
 import ChatItem from "./ChatItem";
 import { useForm } from "react-hook-form";
 import ChatWindow from "./ChatWindow";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import sendRequest from "../../../utility/apiManager";
 import { errorToast } from "../../../utility/toast";
 import { BASE_URL } from "../../../utility/config";
@@ -24,13 +24,15 @@ socket.on("connection", () => {
 });
 
 function Messenger() {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState({});
   const [receiver, setReceiver] = useState(null);
   const [chatwindowIsActive, setChatWindowIsActive] = useState(false);
   const [usersList, setUsersList] = useState(null);
   const [dropdownIsOpen, setDropdownIsOpen] = useState(false);
   const [chatsList, setChatsList] = useState(null);
   const [newChatModalIsOpen, setNewChatModalIsOpen] = useState(false);
+  const [scrollBottomTrig, setScrollBottomTrig] = useState(null);
+  const messageDiv = useRef();
 
   const {
     handleSubmit,
@@ -41,24 +43,42 @@ function Messenger() {
 
   useEffect(() => {
     socket.emit("add_user", decode.id);
-  }, []);
+  }, [socket.id]);
 
-  socket.on("receiveMsg", (data) => {
-    setMessages(() => [...messages, data]);
-  });
+  useEffect(() => {
+    socket.on("receiveMsg", (data) => {
+      console.log("megs", messages);
+      console.log("mesages docs", data);
+      if (data.success) {
+        setMessages((prevMessages) => {
+          return {
+            ...prevMessages,
+            docs: prevMessages.docs.concat(data),
+          };
+        });
+        setScrollBottomTrig(Math.random());
+      }
+      socket.off("receiveMsg");
+    });
+  }, [socket.id, messages]);
+
+  useEffect(() => {
+    socket.on("getMessages", (data) => {
+      if (data) {
+        setMessages(() => data.messages);
+        setScrollBottomTrig(Math.random());
+      }
+      socket.off("getMessages");
+    });
+  }, [messages]);
 
   const onMessageSeen = (data) => {
     socket.emit("msgRead", {
       senderId: data.senderId,
-      messageId: [data.messageId],
+      messageId: data.messageId,
+      chatId: receiver?.id,
     });
   };
-
-  useEffect(() => {
-    socket.on("getMessages", (data) => {
-      setMessages(data.messages);
-    });
-  }, [socket]);
 
   useEffect(() => {
     sendRequest("get", "chats").then((res) => {
@@ -69,11 +89,12 @@ function Messenger() {
   }, []);
 
   const handleChatClick = (data) => {
-    socket.emit("getMessages", data.id);
+    socket.emit("getMessages", { chatId: data.id });
     socket.on("getMsgs", (messages) => {
       if (messages.status) {
         setMessages(messages.messages);
         setChatWindowIsActive(true);
+        setScrollBottomTrig(Math.random());
       } else {
         console.log("messagesErr", messages.error);
       }
@@ -93,21 +114,25 @@ function Messenger() {
 
     socket.on("checkMsgDelivered", (dta) => {
       console.log("dta", dta);
-      setMessages([
+      setMessages({
         ...messages,
-        {
-          message: data.newMessage,
-          time: new Date().toISOString(),
-          status:
-            dta.response.message && dta.response.status
-              ? "unread"
-              : "undelivered",
-          chatId: receiver?.id,
-          messageId: randomId,
-          sender: decode.email,
-          success: dta.response.status ? true : false,
-        },
-      ]);
+        docs: [
+          ...messages.docs,
+          {
+            message: data.newMessage,
+            time: new Date().toISOString(),
+            status:
+              dta.response.message && dta.response.status
+                ? "unread"
+                : "undelivered",
+            chatId: receiver?.id,
+            messageId: randomId,
+            sender: decode.email,
+            success: dta.response.status ? true : false,
+          },
+        ],
+      });
+      setScrollBottomTrig(Math.random());
     });
 
     socket.on("msgFailure", (data) => {
@@ -120,37 +145,40 @@ function Messenger() {
   };
 
   const handleRetryClick = (data) => {
-    const filtered = messages.filter(
+    const filtered = messages.docs.filter(
       (item) => item.messageId !== data.messageId
     );
     console.log("filtered", filtered);
-    console.log("data", data);
-    setMessages([...filtered], () => {
-      console.log("filList1", messages);
-      // const randomId = `msg-${Math.floor(Math.random() * 99999999)}`;
-      // socket.emit("send_msg", {
-      //   receiver: receiver?.userId,
-      //   chatId: receiver?.id,
-      //   sender: decode?.id,
-      //   message: data.message,
-      //   messageId: randomId,
-      // });
+    const randomId = `msg-${Math.floor(Math.random() * 99999999)}`;
+    socket.emit("send_msg", {
+      receiver: receiver?.userId,
+      chatId: receiver?.id,
+      sender: decode?.id,
+      message: data.message,
+      messageId: randomId,
+    });
 
-      // socket.on("checkMsgDelivered", (dta) => {
-      //   setMessages([
-      //     ...messages,
-      //     {
-      //       message: data.message,
-      //       time: new Date().toISOString(),
-      //       status: dta.message && dta.status ? "unread" : "undelivered",
-      //       chatId: receiver?.id,
-      //       messageId: randomId,
-      //       sender: decode.email,
-      //       success: dta.status ? true : false,
-      //     },
-      //   ]);
-      // });
-      // console.log("filList2", messages);
+    socket.on("checkMsgDelivered", (dta) => {
+      console.log("dta", dta);
+      setMessages({
+        ...messages,
+        docs: [
+          ...filtered,
+          {
+            message: data.message,
+            time: new Date().toISOString(),
+            status:
+              dta.response.message && dta.response.status
+                ? "unread"
+                : "undelivered",
+            chatId: receiver?.id,
+            messageId: randomId,
+            sender: decode.email,
+            success: dta.response.status ? true : false,
+          },
+        ],
+      });
+      setScrollBottomTrig(Math.random());
     });
   };
 
@@ -190,16 +218,18 @@ function Messenger() {
           if (res.status) {
             obj["id"] = res?.user?._id;
 
-            socket.emit("getMessages", res?.user?._id);
+            socket.emit("getMessages", { chatId: res?.user?._id });
             socket.on("getMsgs", (messages) => {
               if (messages.status) {
                 setMessages(messages.messages);
                 setReceiver(obj);
                 setChatWindowIsActive(true);
                 setNewChatModalIsOpen(false);
+                setScrollBottomTrig(Math.random());
               } else {
                 console.log("messagesErr", messages.error);
               }
+              socket.off("getMsgs");
             });
           }
         });
@@ -259,6 +289,23 @@ function Messenger() {
         } else {
           console.log("err", data.error);
         }
+      });
+    }
+  };
+
+  const sendUpdateRequest = () => {
+    if (messages.hasNextPage && Object.keys(messages).length > 0) {
+      socket.emit("getMoreMessages", {
+        page: messages.page + 1,
+        chatId: receiver?.id,
+      });
+
+      socket.on("moreMessages", (data) => {
+        setMessages({
+          ...data.messages,
+          docs: [...data.messages.docs, ...messages.docs],
+        });
+        messageDiv.current.scrollTo(0, 60);
       });
     }
   };
@@ -332,6 +379,9 @@ function Messenger() {
                 receiver={receiver}
                 onMessageSeen={onMessageSeen}
                 handleRetryClick={handleRetryClick}
+                sendUpdateRequest={sendUpdateRequest}
+                scrollBottomTrig={scrollBottomTrig}
+                messageDiv={messageDiv}
               />
             )}
           </div>

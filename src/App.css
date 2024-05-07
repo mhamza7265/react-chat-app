@@ -291,6 +291,10 @@
   padding: 20px 0;
 }
 
+.request-update {
+  margin-top: 50px;
+}
+
 .messages-container {
   height: 90%;
   padding: 20px 0;
@@ -314,6 +318,7 @@
 
 .message.failed {
   background-color: red !important;
+  margin-bottom: 25px;
 }
 
 .message.self {
