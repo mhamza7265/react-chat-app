@@ -10,8 +10,8 @@ import { Modal } from "react-bootstrap";
 import { jwtDecode } from "jwt-decode";
 import socketClient from "socket.io-client";
 const tok = localStorage.getItem("currentUser");
-const token = JSON.parse(tok).token;
-const decode = jwtDecode(token);
+const token = JSON.parse(tok)?.token;
+const decode = tok ? jwtDecode(token) : null;
 
 const socket = socketClient("http://localhost:3000", {
   query: {
@@ -32,7 +32,11 @@ function Messenger() {
   const [chatsList, setChatsList] = useState(null);
   const [newChatModalIsOpen, setNewChatModalIsOpen] = useState(false);
   const [scrollBottomTrig, setScrollBottomTrig] = useState(null);
+  const [scrollHoldUpdate, setScrollHoldUpdate] = useState(null);
+  const [messageLoading, setMessageLoading] = useState(false);
+  const [profile, setProfile] = useState(null);
   const messageDiv = useRef();
+  const prevScrollHeightRef = useRef();
 
   const {
     handleSubmit,
@@ -42,13 +46,21 @@ function Messenger() {
   } = useForm();
 
   useEffect(() => {
+    sendRequest("get", "profile").then((res) => {
+      if (res.status) {
+        setProfile(res.user);
+      }
+    });
+  }, []);
+
+  console.log("profile", profile);
+
+  useEffect(() => {
     socket.emit("add_user", decode.id);
   }, [socket.id]);
 
   useEffect(() => {
     socket.on("receiveMsg", (data) => {
-      console.log("megs", messages);
-      console.log("mesages docs", data);
       if (data.success) {
         setMessages((prevMessages) => {
           return {
@@ -58,9 +70,10 @@ function Messenger() {
         });
         setScrollBottomTrig(Math.random());
       }
-      socket.off("receiveMsg");
     });
-  }, [socket.id, messages]);
+
+    return () => socket.off("receiveMsg");
+  }, [socket]);
 
   useEffect(() => {
     socket.on("getMessages", (data) => {
@@ -113,7 +126,6 @@ function Messenger() {
     });
 
     socket.on("checkMsgDelivered", (dta) => {
-      console.log("dta", dta);
       setMessages({
         ...messages,
         docs: [
@@ -133,6 +145,7 @@ function Messenger() {
         ],
       });
       setScrollBottomTrig(Math.random());
+      socket.off("checkMsgDelivered");
     });
 
     socket.on("msgFailure", (data) => {
@@ -183,15 +196,20 @@ function Messenger() {
   };
 
   const handleNewMessageClick = () => {
-    socket.emit("getUsersRequest", { page: 1 });
-    socket.on("getUsers", (data) => {
-      if (data.status) {
-        setUsersList(data.users);
-        setDropdownIsOpen(true);
-      } else {
-        console.log("err", data.error);
-      }
-    });
+    if (!dropdownIsOpen) {
+      socket.emit("getUsersRequest", { page: 1 });
+      socket.on("getUsers", (data) => {
+        if (data.status) {
+          console.log("data.users", data.users);
+          setUsersList(data.users);
+          setDropdownIsOpen(true);
+        } else {
+          console.log("err", data.error);
+        }
+      });
+    } else {
+      setDropdownIsOpen(false);
+    }
   };
 
   const handleUserClick = (e) => {
@@ -201,15 +219,19 @@ function Messenger() {
       email: e.currentTarget.getAttribute("data-email"),
       userId: e.currentTarget.getAttribute("data-userid"),
     };
+
+    console.log("image", obj.image);
     sendRequest("post", "chat", {
       receiver: obj.email,
       name: obj.name,
-      image: obj.image,
+      image1: profile?.image ?? photoPlaceholder,
+      image2: obj.image,
       userId: obj.userId,
     }).then((res) => {
       if (res.status) {
         sendRequest("get", "chats").then((res) => {
           if (res.status) {
+            console.log("chat res", res.chats);
             setChatsList(res.chats);
           }
         });
@@ -217,6 +239,7 @@ function Messenger() {
         sendRequest("get", `chat/${obj.email}`).then((res) => {
           if (res.status) {
             obj["id"] = res?.user?._id;
+            obj["name"] = [obj.name];
 
             socket.emit("getMessages", { chatId: res?.user?._id });
             socket.on("getMsgs", (messages) => {
@@ -293,8 +316,17 @@ function Messenger() {
     }
   };
 
+  useEffect(() => {
+    const newContentHeight =
+      messageDiv?.current?.scrollHeight - prevScrollHeightRef.current;
+    messageDiv?.current?.scrollBy(0, newContentHeight);
+  }, [scrollHoldUpdate]);
+
   const sendUpdateRequest = () => {
+    prevScrollHeightRef.current = messageDiv?.current?.scrollHeight;
+
     if (messages.hasNextPage && Object.keys(messages).length > 0) {
+      setMessageLoading(true);
       socket.emit("getMoreMessages", {
         page: messages.page + 1,
         chatId: receiver?.id,
@@ -305,19 +337,29 @@ function Messenger() {
           ...data.messages,
           docs: [...data.messages.docs, ...messages.docs],
         });
-        messageDiv.current.scrollTo(0, 60);
+        setScrollHoldUpdate(Math.random());
+        setMessageLoading(false);
       });
     }
   };
 
   return (
-    <div className="container-fluid h-100 p-0" onClick={handleContainerClick}>
+    <div
+      className="container-fluid chat-container p-0"
+      onClick={handleContainerClick}
+    >
       <div className="chat h-100">
         <div className="d-flex h-100">
           <div className="chat-list">
             <div className="header d-flex align-items-center justify-content-between position-relative">
               <div className="image">
-                <img src={photoPlaceholder} />
+                <img
+                  src={
+                    profile?.image
+                      ? BASE_URL + "/" + profile.image
+                      : photoPlaceholder
+                  }
+                />
               </div>
               <i
                 className="fa-regular fa-square-plus cursor-pointer"
@@ -382,6 +424,7 @@ function Messenger() {
                 sendUpdateRequest={sendUpdateRequest}
                 scrollBottomTrig={scrollBottomTrig}
                 messageDiv={messageDiv}
+                messageLoading={messageLoading}
               />
             )}
           </div>

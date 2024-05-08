@@ -169,9 +169,13 @@
   display: block;
 }
 
+.chat-container {
+  height: 80%;
+}
+
 .chat {
   background-color: #f0f2f5;
-  min-height: 550px;
+  min-height: 536px;
 }
 
 .chat-list {
@@ -384,6 +388,47 @@
 
 .new-chat .modal-body {
   padding: 2rem !important;
+}
+
+.chat-detail {
+  background-image: url("./assets/images/chat-vector-3.svg");
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: 300px;
+}
+
+.loading {
+  background-color: #000;
+  color: white;
+  border-radius: 5px;
+  width: max-content;
+  padding: 5px 8px;
+  margin: auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 30px;
+  background-color: #34b19a;
+}
+
+.header img {
+  height: 50px;
+  width: 50px;
+}
+
+.nav-btns {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 160px;
+}
+
+.navlinks {
+  font-weight: 600;
+  font-size: 17px;
 }
 
 @media (max-width: 900px) {

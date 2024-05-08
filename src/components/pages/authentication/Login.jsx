@@ -46,7 +46,7 @@ function Login() {
             JSON.stringify({ token: res.token })
           );
           setTimeout(() => {
-            navigate("/chat");
+            navigate("/");
           }, 2000);
         } else {
           warningToast(res.error);

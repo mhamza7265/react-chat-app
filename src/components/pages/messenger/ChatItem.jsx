@@ -1,4 +1,5 @@
 import { jwtDecode } from "jwt-decode";
+import { BASE_URL } from "../../../utility/config";
 
 function ChatItem({
   image,
@@ -10,9 +11,14 @@ function ChatItem({
   receiver,
 }) {
   const tok = localStorage.getItem("currentUser");
-  const token = JSON.parse(tok).token;
-  const decode = jwtDecode(token);
+  const token = JSON.parse(tok)?.token;
+  const decode = tok ? jwtDecode(token) : null;
   const email = users?.filter((item) => item != decode.email)[0];
+  const userName = name?.find(
+    (item) => item != decode?.firstName + " " + decode?.lastName
+  );
+  const userImage = Object.keys(image).find((item) => item != decode.email);
+  const userImg = image[userImage];
   const userId = userIds?.filter((item) => item != decode.id)[0];
   const handleClick = () => {
     handleChatClick({ image, name, email, id, userId });
@@ -27,10 +33,10 @@ function ChatItem({
       onClick={handleClick}
     >
       <div className="image cursor-pointer">
-        <img src={image} />
+        <img src={BASE_URL + "/" + userImg} />
       </div>
       <div className="content cursor-pointer">
-        <span>{email}</span>
+        <span>{userName}</span>
       </div>
     </div>
   );
