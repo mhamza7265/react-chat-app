@@ -431,6 +431,11 @@
   font-size: 17px;
 }
 
+.submit-btn.disable {
+  pointer-events: none;
+  color: #504f4f;
+}
+
 @media (max-width: 900px) {
   .chat-individual img {
     height: 51px;

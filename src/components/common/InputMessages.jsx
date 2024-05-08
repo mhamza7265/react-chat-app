@@ -7,12 +7,22 @@ function InputMessages({
   label,
   defaultValue,
   readOnly,
+  setBtnIsDisabled,
 }) {
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    if (value) {
+      setBtnIsDisabled(false);
+    } else {
+      setBtnIsDisabled(true);
+    }
+  };
+
   return (
     <div className="form-grp">
       {label && <label>{label}</label>}
       <input
-        {...register(name, required && { required: "This field is required!" })}
+        {...register(name, { onChange: handleInputChange })}
         name={name}
         type="text"
         placeholder={placeholder}

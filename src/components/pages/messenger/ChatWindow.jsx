@@ -1,6 +1,6 @@
 import InputMessages from "../../common/InputMessages";
 import MessageBubble from "./MessageBubble";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { BASE_URL } from "../../../utility/config";
 
@@ -21,6 +21,7 @@ function ChatWindow({
   messageDiv,
   messageLoading,
 }) {
+  const [btnIsDisabled, setBtnIsDisabled] = useState(true);
   useEffect(() => {
     messageDiv.current.scrollTo(0, messageDiv.current.scrollHeight);
   }, [scrollBottomTrig]);
@@ -90,8 +91,13 @@ function ChatWindow({
             placeholder={placeholder}
             required={required}
             error={error}
+            setBtnIsDisabled={setBtnIsDisabled}
           />
-          <button className="fa-solid fa-location-arrow ms-3"></button>
+          <button
+            className={`fa-solid fa-location-arrow ms-3 submit-btn ${
+              btnIsDisabled && "disable"
+            }`}
+          ></button>
         </div>
       </form>
     </div>
