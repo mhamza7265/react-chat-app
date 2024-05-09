@@ -35,6 +35,8 @@ function Messenger() {
   const [scrollHoldUpdate, setScrollHoldUpdate] = useState(null);
   const [messageLoading, setMessageLoading] = useState(false);
   const [profile, setProfile] = useState(null);
+  const [btnIsDisabled, setBtnIsDisabled] = useState(true);
+  const [dropdownStates, setDropdownStates] = useState(Array(2).fill(false));
   const messageDiv = useRef();
   const prevScrollHeightRef = useRef();
 
@@ -52,8 +54,6 @@ function Messenger() {
       }
     });
   }, []);
-
-  console.log("profile", profile);
 
   useEffect(() => {
     socket.emit("add_user", decode.id);
@@ -74,6 +74,19 @@ function Messenger() {
 
     return () => socket.off("receiveMsg");
   }, [socket]);
+
+  socket.on("deleteMsgRes", (data) => {
+    console.log("deleteReceived");
+    const messagesList = messages?.docs?.filter(
+      (item) => item.messageId !== data.messageId
+    );
+    setMessages((prevMessages) => {
+      return {
+        ...prevMessages,
+        docs: messagesList,
+      };
+    });
+  });
 
   useEffect(() => {
     socket.on("getMessages", (data) => {
@@ -155,13 +168,13 @@ function Messenger() {
     });
 
     reset();
+    setBtnIsDisabled(true);
   };
 
   const handleRetryClick = (data) => {
     const filtered = messages.docs.filter(
       (item) => item.messageId !== data.messageId
     );
-    console.log("filtered", filtered);
     const randomId = `msg-${Math.floor(Math.random() * 99999999)}`;
     socket.emit("send_msg", {
       receiver: receiver?.userId,
@@ -260,6 +273,16 @@ function Messenger() {
     });
   };
 
+  const deleteMessage = (data) => {
+    if (confirm("Do you want to delete this message?")) {
+      socket.emit("deleteMsg", {
+        messageId: data.messageId,
+        receiver: receiver?.userId,
+      });
+    }
+    return;
+  };
+
   const handleContainerClick = (e) => {
     const node = e.target.classList;
     const classNames = [
@@ -341,6 +364,13 @@ function Messenger() {
         setMessageLoading(false);
       });
     }
+  };
+
+  const toggleDropdown = (index) => {
+    console.log("index", index);
+    setDropdownStates((prevStates) =>
+      prevStates.map((isOpen, i) => (i === index ? !isOpen : false))
+    );
   };
 
   return (
@@ -425,6 +455,11 @@ function Messenger() {
                 scrollBottomTrig={scrollBottomTrig}
                 messageDiv={messageDiv}
                 messageLoading={messageLoading}
+                setBtnIsDisabled={setBtnIsDisabled}
+                btnIsDisabled={btnIsDisabled}
+                deleteMessage={deleteMessage}
+                toggleDropdown={toggleDropdown}
+                dropdownStates={dropdownStates}
               />
             )}
           </div>

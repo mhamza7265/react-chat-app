@@ -2,7 +2,6 @@ function InputMessages({
   register,
   name,
   placeholder,
-  required,
   error,
   label,
   defaultValue,

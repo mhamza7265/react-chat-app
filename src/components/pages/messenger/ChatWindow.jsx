@@ -1,6 +1,6 @@
 import InputMessages from "../../common/InputMessages";
 import MessageBubble from "./MessageBubble";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { BASE_URL } from "../../../utility/config";
 
@@ -20,8 +20,12 @@ function ChatWindow({
   scrollBottomTrig,
   messageDiv,
   messageLoading,
+  setBtnIsDisabled,
+  btnIsDisabled,
+  deleteMessage,
+  dropdownStates,
+  toggleDropdown,
 }) {
-  const [btnIsDisabled, setBtnIsDisabled] = useState(true);
   useEffect(() => {
     messageDiv.current.scrollTo(0, messageDiv.current.scrollHeight);
   }, [scrollBottomTrig]);
@@ -67,6 +71,7 @@ function ChatWindow({
             item.chatId === receiver?.id && (
               <MessageBubble
                 key={i}
+                index={i}
                 id={item._id}
                 message={item.message}
                 messageId={item.messageId}
@@ -79,6 +84,9 @@ function ChatWindow({
                 success={item.success}
                 onMessageSeen={onMessageSeen}
                 handleRetryClick={handleRetryClick}
+                deleteMessage={deleteMessage}
+                dropdownStates={dropdownStates}
+                toggleDropdown={toggleDropdown}
               />
             )
         )}

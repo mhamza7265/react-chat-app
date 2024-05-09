@@ -13,25 +13,17 @@ function MessageBubble({
   success,
   onMessageSeen,
   handleRetryClick,
+  deleteMessage,
 }) {
   const [seen, setSeen] = useState(!status == "read" && false);
+  const [msgOptionsDropdownIsOpen, setMsgOptionsDropdownIsOpen] =
+    useState(false);
   const messageRef = useRef();
   const timeString = new Date(time).toLocaleTimeString("en", {
     timeStyle: "short",
     hour12: true,
     timeZone: "Asia/Karachi",
   });
-
-  // const handleScroll = () => {
-  //   const messageElement = document.getElementById(messageId);
-  //   if (messageElement) {
-  //     const rect = messageElement.getBoundingClientRect();
-  //     if (rect.top >= 0 && rect.bottom <= window.innerHeight && !seen) {
-  //       setSeen(true);
-  //       onMessageSeen({ messageId, senderId });
-  //     }
-  //   }
-  // };
 
   const handleMsgRetryClick = () => {
     handleRetryClick({ message, messageId, chatId, senderId });
@@ -52,6 +44,11 @@ function MessageBubble({
     observer.observe(messageRef.current);
   }, [messageId, seen, onMessageSeen]);
 
+  const dltMsg = () => {
+    deleteMessage({ messageId });
+    setMsgOptionsDropdownIsOpen(false);
+  };
+
   return (
     <>
       <div
@@ -63,6 +60,25 @@ function MessageBubble({
         id={messageId}
         ref={messageRef}
       >
+        {type == "self" && (
+          <>
+            <div
+              className="message-options cursor-pointer"
+              onClick={() =>
+                setMsgOptionsDropdownIsOpen(!msgOptionsDropdownIsOpen)
+              }
+            >
+              <i className="fas fa-angle-down"></i>
+            </div>
+            {msgOptionsDropdownIsOpen && (
+              <div className="messages-options-dropdown">
+                <p className="cursor-pointer" onClick={dltMsg}>
+                  Delete
+                </p>
+              </div>
+            )}
+          </>
+        )}
         <p className="message-text" style={{ color: "#000" }}>
           {message}
         </p>
